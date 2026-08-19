@@ -48,6 +48,7 @@ export default function App() {
   const [bouncing, setBouncing] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
   const [bpmText, setBpmText] = useState("150");
+  const [confirmClear, setConfirmClear] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
   const timeRef = useRef(0);
@@ -139,6 +140,56 @@ export default function App() {
   };
   const restartIfPlaying = () => {
     if (engine.playing) { engine.play(collectBufs(), engine.getPos()); }
+  };
+
+  /* очистка дорожки */
+  const clearTrack = (id: string) => {
+    const name = TRACKS.find((d) => d.id === id)!.name;
+    const p = presetFor(genre, id);
+    setTracks((t) => ({
+      ...t,
+      [id]: {
+        ...t[id], buffer: null, processed: null, fileName: null,
+        eq: p.eq, comp: p.comp, fader: p.fader, pan: p.pan, pol: 1,
+        tuneDone: false, gridDone: false, busy: null, prog: 0,
+      },
+    }));
+    toast(`${name.toUpperCase()}: ФАЙЛ УБРАН`);
+    window.setTimeout(() => {
+      const remaining = TRACKS.some((d) => {
+        const s = tracksRef.current[d.id];
+        return (s.processed ?? s.buffer) !== null;
+      });
+      if (!remaining) doStop();
+      else restartIfPlaying();
+    }, 60);
+  };
+
+  /* очистка всех дорожек (двухшаговое подтверждение) */
+  const confirmTimer = useRef(0);
+  const clearAll = () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      window.clearTimeout(confirmTimer.current);
+      confirmTimer.current = window.setTimeout(() => setConfirmClear(false), 2600);
+      return;
+    }
+    setConfirmClear(false);
+    window.clearTimeout(confirmTimer.current);
+    setTracks((t) => {
+      const n: Record<string, TState> = {};
+      for (const d of TRACKS) {
+        const p = presetFor(genre, d.id);
+        n[d.id] = {
+          ...t[d.id], buffer: null, processed: null, fileName: null,
+          eq: p.eq, comp: p.comp, fader: p.fader, pan: p.pan, pol: 1,
+          tuneDone: false, gridDone: false, busy: null, prog: 0,
+        };
+      }
+      return n;
+    });
+    doStop();
+    toast("ВСЕ ДОРОЖКИ ОЧИЩЕНЫ");
   };
 
   /* загрузка файла */
@@ -389,6 +440,7 @@ export default function App() {
                   anySolo={anySolo}
                   onSelect={() => setSelected(d.id)}
                   onFile={(f) => void handleFile(d.id, f)}
+                  onClear={() => clearTrack(d.id)}
                   onSeek={onSeek}
                   onMute={() => patch(d.id, { mute: !tracks[d.id].mute })}
                   onSolo={() => patch(d.id, { solo: !tracks[d.id].solo })}
@@ -432,7 +484,21 @@ export default function App() {
         <span>ДОРОЖКИ: <span className="text-silk">{loadedCount}/11</span></span>
         <span>ТОНАЛЬНОСТЬ: <span className="text-amber">{keyLabel.toUpperCase()}</span></span>
         <span>СЕТКА: <span className="text-silk">{bpm} BPM</span></span>
-        <span className="ml-auto hidden md:block">
+        <button
+          onClick={clearAll}
+          disabled={loadedCount === 0}
+          className={`ml-auto shrink-0 bevel rounded-[3px] px-2.5 py-1 transition-all duration-150 ${
+            loadedCount === 0
+              ? "text-faint/40 bg-raise cursor-not-allowed"
+              : confirmClear
+                ? "bg-hot text-ink blink-rec"
+                : "bg-raise text-dim border border-line hover:text-hot hover:border-hot/70"
+          }`}
+          title="Убрать все загруженные файлы"
+        >
+          {confirmClear ? "ПОДТВЕРДИТЬ ОЧИСТКУ?" : "ОЧИСТИТЬ ВСЁ"}
+        </button>
+        <span className="hidden lg:block">
           ЛКМ ПО ВОЛНЕ — ПЕРЕМОТКА • ДВОЙНОЙ КЛИК ПО КНОБКЕ — СБРОС • КОЛЕСО — ТОЧНАЯ ПОДСТРОЙКА
         </span>
       </footer>

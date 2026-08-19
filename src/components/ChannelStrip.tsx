@@ -5,13 +5,14 @@ import { engine } from "../audio/engine";
 import { computePeaks } from "../audio/processing";
 import { Chip, Led, LevelMeter, MSButton, ProgressBar, VFader, Knob } from "./controls";
 
-export function ChannelStrip({ def, st, selected, anySolo, onSelect, onFile, onSeek, onMute, onSolo, onFader, onPan }: {
+export function ChannelStrip({ def, st, selected, anySolo, onSelect, onFile, onClear, onSeek, onMute, onSolo, onFader, onPan }: {
   def: TrackDef;
   st: TState;
   selected: boolean;
   anySolo: boolean;
   onSelect: () => void;
   onFile: (f: File) => void;
+  onClear: () => void;
   onSeek: (t: number) => void;
   onMute: () => void;
   onSolo: () => void;
@@ -87,6 +88,18 @@ export function ChannelStrip({ def, st, selected, anySolo, onSelect, onFile, onS
         <Led on={!!buf} color={st.busy ? "#ffb020" : def.color} pulse={!!st.busy} />
         <span className="font-mono text-[9px] text-dim tracking-widest">{def.tag}</span>
         <span className="ml-auto font-mono text-[7.5px] text-faint tracking-wider">{def.group}</span>
+        {buf && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            title="Убрать загруженный файл"
+            className="group/clr w-4 h-4 flex items-center justify-center rounded-[2px] border border-line bg-ink text-faint hover:text-hot hover:border-hot transition-colors"
+          >
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4"
+              className="transition-transform group-hover/clr:rotate-90 duration-150">
+              <path d="M5 5l14 14M19 5L5 19" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="h-7 flex items-start mt-0.5">
         <span className="font-disp text-[9.5px] leading-[11px] tracking-wide text-silk">{def.name}</span>
